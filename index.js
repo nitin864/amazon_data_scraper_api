@@ -1,62 +1,95 @@
-const express = require("express");
-const axios = require("axios");
-const cheerio = require("cheerio");
-
+require('dotenv').config();
+const express = require('express');
+const axios = require('axios');
+const PORT = process.env.PORT || 5000;
 const app = express();
-const PORT = process.env.PORT || 3000;
+ 
 
 const apiKey = process.env.SCRAPER_API_KEY || "a20101d025ebf1c47691322460xxxxx";
 const baseUrl = "http://api.scraperapi.com";
+ 
 
 app.use(express.json());
-app.set("json spaces", 2);
+app.set('json spaces', 2);
 
-app.get("/", (req, res) => {
-  res.send("Welcome to Amazon Scraper API");
+// Get API key from environment variable
+const DEFAULT_API_KEY = process.env.SCRAPER_API_KEY;
+
+const returnScraperApiUrl = (apiKey) => `http://api.scraperapi.com?api_key=${apiKey}&autoparse=true`;
+
+// Welcome route
+app.get('/', (req, res) => {
+  res.send('Welcome to Amazon Scraper API!');
 });
 
-app.get("/products/:productId", async (req, res) => {
+// Get product details
+app.get('/products/:productId', async (req, res) => {
+  const { productId } = req.params;
+  const api_key = req.query.api_key || DEFAULT_API_KEY;
+
   try {
-    const { productId } = req.params;
-
-    const amazonUrl = `https://www.amazon.in/dp/${productId}`;
-    const scraperUrl = `${baseUrl}?api_key=${apiKey}&url=${encodeURIComponent(
-      amazonUrl
-    )}&render=true`;
-
-    const { data: html } = await axios.get(scraperUrl);
-    const $ = cheerio.load(html);
-
-    const title = $("#productTitle").text().trim() || null;
-    const price = $(".a-price-whole").first().text().trim() || null;
-    const rating = $("span.a-icon-alt").first().text().trim() || null;
-    let availability = "Unknown";
-    const availabilityText = $("#availability span").text().trim();
-    if (availabilityText) availability = availabilityText;
-        const images = [];
-    $("#altImages img").each((_, el) => {
-      const img = $(el).attr("src");
-      if (img && !img.includes("sprite")) {
-        images.push(img.replace("_SS40_", "_SL1500_"));
-      }
-    });
-
-    res.json({
-      success: true,
-      product: {
-        productId,
-        title,
-        price,
-        rating,
-        availability,
-        images
-      },
-    });
-  } catch (err) {
+    const url = `${returnScraperApiUrl(api_key)}&url=https://www.amazon.in/dp/${productId}`;
+    const response = await axios.get(url);
+    res.json(response.data);
+  } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Failed to scrape product",
-      error: err.message,
+      message: 'Failed to fetch product details',
+      error: error.message
+    });
+  }
+});
+
+// Get product reviews
+app.get('/products/:productId/reviews', async (req, res) => {
+  const { productId } = req.params;
+  const api_key = req.query.api_key || DEFAULT_API_KEY;
+
+  try {
+    const url = `${returnScraperApiUrl(api_key)}&url=https://www.amazon.in/product-reviews/${productId}`;
+    const response = await axios.get(url);
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch product reviews',
+      error: error.message
+    });
+  }
+});
+
+// Get product offers
+app.get('/products/:productId/offers', async (req, res) => {
+  const { productId } = req.params;
+  const api_key = req.query.api_key || DEFAULT_API_KEY;
+
+  try {
+    const url = `${returnScraperApiUrl(api_key)}&url=https://www.amazon.in/gp/offer-listing/${productId}`;
+    const response = await axios.get(url);
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch product offers',
+      error: error.message
+    });
+  }
+});
+
+// Get search results
+app.get('/search/:searchQuery', async (req, res) => {
+  const { searchQuery } = req.params;
+  const api_key = req.query.api_key || DEFAULT_API_KEY;
+
+  try {
+    const url = `${returnScraperApiUrl(api_key)}&url=https://www.amazon.in/s?k=${searchQuery}`;
+    const response = await axios.get(url);
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch search results',
+      error: error.message
     });
   }
 });
