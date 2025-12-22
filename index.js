@@ -5,7 +5,7 @@ const cheerio = require("cheerio");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const apiKey = process.env.SCRAPER_API_KEY || "a20101d025ebf1c476913224606d49b8";
+const apiKey = process.env.SCRAPER_API_KEY || "a20101d025ebf1c47691322460xxxxx";
 const baseUrl = "http://api.scraperapi.com";
 
 app.use(express.json());
