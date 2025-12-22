@@ -1,50 +1,66 @@
 const express = require("express");
 const axios = require("axios");
+const cheerio = require("cheerio");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
-const apiKey = "a20101d025ebf1c476913224606d49b8";
+
+const apiKey = process.env.SCRAPER_API_KEY || "a20101d025ebf1c476913224606d49b8";
 const baseUrl = "http://api.scraperapi.com";
 
 app.use(express.json());
+app.set("json spaces", 2);
 
 app.get("/", (req, res) => {
   res.send("Welcome to Amazon Scraper API");
 });
 
-// GET Product Details
 app.get("/products/:productId", async (req, res) => {
-  const { productId } = req.params;
-  
-  if (!productId) {
-    return res.status(400).json({
-      success: false,
-      message: "productId is required",
-    });
-  }
-
   try {
+    const { productId } = req.params;
+
     const amazonUrl = `https://www.amazon.in/dp/${productId}`;
-    
-    // Correct ScraperAPI URL format
-    const scraperUrl = `${baseUrl}?api_key=${apiKey}&url=${encodeURIComponent(amazonUrl)}&render=true`;
-    
-    const response = await axios.get(scraperUrl);
+    const scraperUrl = `${baseUrl}?api_key=${apiKey}&url=${encodeURIComponent(
+      amazonUrl
+    )}&render=true`;
+
+    const { data: html } = await axios.get(scraperUrl);
+    const $ = cheerio.load(html);
+
+    const title = $("#productTitle").text().trim() || null;
+    const price = $(".a-price-whole").first().text().trim() || null;
+    const rating = $("span.a-icon-alt").first().text().trim() || null;
+    let availability = "Unknown";
+    const availabilityText = $("#availability span").text().trim();
+    if (availabilityText) availability = availabilityText;
+        const images = [];
+    $("#altImages img").each((_, el) => {
+      const img = $(el).attr("src");
+      if (img && !img.includes("sprite")) {
+        images.push(img.replace("_SS40_", "_SL1500_"));
+      }
+    });
 
     res.json({
       success: true,
-      data: response.data,
+      product: {
+        productId,
+        title,
+        price,
+        rating,
+        availability,
+        images
+      },
     });
-  } catch (error) {
-    console.error("Scraping error:", error.message);
+  } catch (err) {
     res.status(500).json({
       success: false,
-      message: "Failed to fetch product",
-      error: error.message,
+      message: "Failed to scrape product",
+      error: err.message,
     });
   }
 });
 
-// Fixed console.log syntax
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
